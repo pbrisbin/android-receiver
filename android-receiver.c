@@ -128,7 +128,7 @@ int main()
   sock = socket(AF_INET, SOCK_DGRAM, 0);
 
   if (sock < 0) 
-    error("Opening socket");
+    error("opening socket");
 
   length = sizeof(server);
 
@@ -139,7 +139,7 @@ int main()
   server.sin_port        = htons(PORTNO);
 
   if (bind(sock, (struct sockaddr *)&server, length) < 0) 
-    error("binding");
+    error("binding to socket");
 
   fromlen = sizeof(struct sockaddr_in);
 
@@ -147,7 +147,7 @@ int main()
     n = recvfrom(sock, buf, 1024, 0, (struct sockaddr *)&from, &fromlen);
 
     if (n < 0) 
-      error("recvfrom");
+      error("recveiving from socket");
 
     pid = fork();
 

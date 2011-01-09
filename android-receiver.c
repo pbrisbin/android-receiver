@@ -1,6 +1,9 @@
+#define _GNU_SOURCE
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 
@@ -14,12 +17,6 @@ struct message_t {
   char *msg_data;
   char *msg_text;
 };
-
-char  *strndup(const char *s, size_t n);
-int   asprintf(char **strp, const char *fmt, ...);
-int   execvp(const char *file, char *const argv[]);
-void  bzero(void *s, size_t n);
-pid_t fork(void);
 
 void             error(char *msg);
 struct message_t parse_message(char *msg);
@@ -147,7 +144,7 @@ int main()
   fromlen = sizeof(struct sockaddr_in);
 
   while (1) {
-    n = recvfrom(sock, buf, 1024, 0, (struct sockaddr * restrict)&from, &fromlen);
+    n = recvfrom(sock, buf, 1024, 0, (struct sockaddr *)&from, &fromlen);
 
     if (n < 0) 
       error("recvfrom");

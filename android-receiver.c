@@ -37,21 +37,22 @@ struct message_t parse_message(char *msg)
 {
   struct message_t message;
 
-  char *txt;
   char *ptr = msg;
 
   char delim = '/';
-  int  field = 0;
-  int  c = 0;
-  int  i = 0;
-  int  j = 0;
+
+  int field = 0;
+
+  int  c = 0; /* n position in the overall string       */
+  int  i = 0; /* accumulated length of last seen field  */
+  int  j = 0; /* n position of start of last seen field */
 
   while (1) {
     if (*ptr== delim)
     {
       field++;
 
-      if (i)
+      if (i) /* these three lines made my head hurt */
         j += i + 1;
 
       i = c - j;
@@ -59,12 +60,10 @@ struct message_t parse_message(char *msg)
       switch(field)
       {
         case 4:
-          txt = strndup(msg + j, i);
-          message.msg_type = txt;
+          message.msg_type = strndup(msg + j, i);
           break;
         case 5:
-          txt = strndup(msg + j, i);
-          message.msg_data = txt;
+          message.msg_data = strndup(msg + j, i);
           break;
       }
     }
@@ -76,12 +75,11 @@ struct message_t parse_message(char *msg)
       break;
   }
 
-  /* and the last field is the text*/
+  /* the last field is the text*/
   field++;
   j  += i + 1;
   i   = c - j;
-  txt = strndup(msg + j, i);
-  message.msg_text = txt;
+  message.msg_text = strndup(msg + j, i);
 
   return message;
 }

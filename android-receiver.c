@@ -52,19 +52,23 @@ struct message_t parse_message(char *msg)
     {
       field++;
 
-      if (i) /* these three lines made my head hurt */
-        j += i + 1;
+      /* there's a possibility of slashes in the sixth field so we'll
+       * parse up to 5 and let the rest be picked up after the loop */
+      if (field <= 5) {
+        if (i) /* these three lines made my head hurt */
+          j += i + 1;
 
-      i = c - j;
+        i = c - j;
 
-      switch(field)
-      {
-        case 4:
-          message.msg_type = strndup(msg + j, i);
-          break;
-        case 5:
-          message.msg_data = strndup(msg + j, i);
-          break;
+        switch(field)
+        {
+          case 4:
+            message.msg_type = strndup(msg + j, i);
+            break;
+          case 5:
+            message.msg_data = strndup(msg + j, i);
+            break;
+        }
       }
     }
 
@@ -75,10 +79,10 @@ struct message_t parse_message(char *msg)
       break;
   }
 
+  j += i + 1;
+  i  = c - j;
+
   /* the last field is the text*/
-  field++;
-  j  += i + 1;
-  i   = c - j;
   message.msg_text = strndup(msg + j, i);
 
   return message;

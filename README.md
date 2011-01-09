@@ -22,8 +22,8 @@ Two constants are defined at the top of android-receiver.c:
 * HANLDER will be executed with the formatted message passed as the 
   first argument when one is receieved.
 
-You cand find the dzen2 handler I'm using in my scripts repo. You could 
-also write you own wrapper around gnome-dbus, notify-osd, etc.
+You can find the dzen2 handler I'm using in my scripts repo. You could 
+also write your own wrapper around gnome-dbus, notify-osd, etc.
 
 My machine is setup to block TCP broadcast packets as per Arch's "Simple 
 stately firewall". Rather than change this setting, I've elected to 

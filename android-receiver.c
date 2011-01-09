@@ -132,7 +132,7 @@ int main()
 
   length = sizeof(server);
 
-  bzero(&server,length);
+  memset(&server, '\0', length);
 
   server.sin_family      = AF_INET;
   server.sin_addr.s_addr = INADDR_ANY;

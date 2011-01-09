@@ -4,12 +4,26 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 
+/* configuration */
+#define PORTNO  10600
+#define HANDLER "dzen-handler"
+
+/* just the parts we care about */
+struct message_t {
+  char *msg_type;
+  char *msg_data;
+  char *msg_text;
+};
+
+char  *strndup(const char *s, size_t n);
+int   asprintf(char **strp, const char *fmt, ...);
 int   execvp(const char *file, char *const argv[]);
 void  bzero(void *s, size_t n);
 pid_t fork(void);
 
-void error(char *msg);
-void handle_message(char *msg);
+void             error(char *msg);
+struct message_t parse_message(char *msg);
+void             handle_message(struct message_t message);
 
 /* error and die */
 void error(char *msg)
@@ -18,23 +32,92 @@ void error(char *msg)
     exit(EXIT_FAILURE);
 }
 
-/* for now we just hand off to my existing bash script */
-void handle_message(char *msg)
+/* we only handle v2 for now */
+struct message_t parse_message(char *msg)
 {
-  char *app = "dzen-handler";
-  char *flags[] = {app, msg, NULL};
+  struct message_t message;
 
-  printf("executing handler: %s %s\n", flags[0], flags[1]);
-  execvp(app, flags);
+  char *txt;
+  char *ptr = msg;
+
+  char delim = '/';
+  int  field = 0;
+  int  c = 0;
+  int  i = 0;
+  int  j = 0;
+
+  while (1) {
+    if (*ptr== delim)
+    {
+      field++;
+
+      if (i)
+        j += i + 1;
+
+      i = c - j;
+
+      switch(field)
+      {
+        case 4:
+          txt = strndup(msg + j, i);
+          message.msg_type = txt;
+          break;
+        case 5:
+          txt = strndup(msg + j, i);
+          message.msg_data = txt;
+          break;
+      }
+    }
+
+    c++;
+
+    /* EOM */
+    if (*ptr++ == '\0')
+      break;
+  }
+
+  /* and the last field is the text*/
+  field++;
+  j  += i + 1;
+  i   = c - j;
+  txt = strndup(msg + j, i);
+  message.msg_text = txt;
+
+  return message;
 }
 
-/* connect to <port> and listen for messages */
-int main(int argc, char *argv[])
+/* for now we just hand off to my existing bash script */
+void handle_message(struct message_t message)
+{
+  char *msg;
+
+  if (strcmp(message.msg_type, "RING") == 0) {
+    asprintf(&msg, "Call from %s", message.msg_text);
+  }
+  else if (strcmp(message.msg_type, "SMS")  == 0 ||
+           strcmp(message.msg_type, "MMS")  == 0 ||
+           strcmp(message.msg_type, "PING") == 0) { /* test message */
+    msg = message.msg_text;
+  }
+  else {
+    msg = NULL;
+  }
+
+  if (!msg)
+    return;
+
+  char *flags[] = { HANDLER, msg, NULL };
+  execvp(HANDLER, flags);
+}
+
+int main()
 {
   unsigned int fromlen;
   int          sock;
   int          length;
   int          n;
+
+  struct message_t message;
 
   struct sockaddr_in server;
   struct sockaddr_in from;
@@ -43,13 +126,6 @@ int main(int argc, char *argv[])
 
   pid_t pid;
 
-  if (argc != 2) {
-    fprintf(stderr, "argc was %i\n", argc);
-    fprintf(stderr, "saw %s, %s, %s\n", argv[0], argv[1], argv[2]);
-    fprintf(stderr, "usage: %s <port>\n", argv[0]);
-    return(EXIT_FAILURE);
-  }
-   
   sock = socket(AF_INET, SOCK_DGRAM, 0);
 
   if (sock < 0) 
@@ -61,7 +137,7 @@ int main(int argc, char *argv[])
 
   server.sin_family      = AF_INET;
   server.sin_addr.s_addr = INADDR_ANY;
-  server.sin_port        = htons(atoi(argv[1]));
+  server.sin_port        = htons(PORTNO);
 
   if (bind(sock, (struct sockaddr *)&server, length) < 0) 
     error("binding");
@@ -76,7 +152,9 @@ int main(int argc, char *argv[])
 
     pid = fork();
 
-    if (pid == 0)
-      handle_message(buf);
+    if (pid == 0) {
+      message = parse_message(buf);
+      handle_message(message);
+    }
   }
 }

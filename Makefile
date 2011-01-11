@@ -1,7 +1,7 @@
 
 include config.mk
 
-SRC = mail-query.c
+SRC = android-receiver.c
 OBJ = ${SRC:.c=.o}
 
 all: android-receiver

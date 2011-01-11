@@ -159,6 +159,7 @@ int main()
         if (pid == 0) {
             message = parse_message(buf);
             handle_message(message);
+            exit(EXIT_SUCCESS);
         }
     }
 }

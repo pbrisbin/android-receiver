@@ -47,7 +47,7 @@ struct message_t parse_message(char *msg)
 
     while (1)
     {
-        if (*ptr== delim)
+        if (*ptr == delim)
         {
             field++;
 
@@ -153,7 +153,7 @@ int main()
         n = recvfrom(sock, buf, 1024, 0, (struct sockaddr *)&from, &fromlen);
 
         if (n < 0) 
-            error("recveiving from socket");
+            error("receiving from socket");
 
         pid = fork();
 

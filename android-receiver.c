@@ -45,7 +45,8 @@ struct message_t parse_message(char *msg)
     int  i = 0; /* accumulated length of last seen field  */
     int  j = 0; /* n position of start of last seen field */
 
-    while (1) {
+    while (1)
+    {
         if (*ptr== delim)
         {
             field++;
@@ -81,7 +82,7 @@ struct message_t parse_message(char *msg)
     j += i + 1;
     i  = c - j;
 
-    /* the last field is the text*/
+    /* the last field is the text */
     message.msg_text = strndup(msg + j, i);
 
     return message;
@@ -94,13 +95,13 @@ void handle_message(struct message_t message)
 
     if (strcmp(message.msg_type, "RING") == 0)
     {
-        asprintf(&msg, "Call from %s", message.msg_text);
+        asprintf(&msg, "  -!-  Call from %s", message.msg_text);
     }
     else if (strcmp(message.msg_type, "SMS")  == 0 ||
              strcmp(message.msg_type, "MMS")  == 0 ||
              strcmp(message.msg_type, "PING") == 0) /* test message */
     {
-        msg = message.msg_text;
+        asprintf(&msg, "  -!-  %s", message.msg_text);
     }
     else {
         msg = NULL;

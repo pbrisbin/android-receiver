@@ -6,6 +6,8 @@
 #include <unistd.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <signal.h>
+#include <sys/wait.h>
 
 /* configuration */
 #define PORTNO  10600
@@ -114,6 +116,13 @@ void handle_message(struct message_t message)
     execvp(HANDLER, flags);
 }
 
+/* signal handler for the forked handler processes */
+void sigchld_handler(int signum)
+{
+    (void) signum; /* silence unused warning */
+    wait(NULL);
+}
+
 int main()
 {
     unsigned int fromlen;
@@ -147,6 +156,9 @@ int main()
         error("binding to socket");
 
     fromlen = sizeof(struct sockaddr_in);
+
+    /* listen for signals from the children we spawn */
+    signal(SIGCHLD, *sigchld_handler);
 
     while (1)
     {

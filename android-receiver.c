@@ -120,7 +120,7 @@ void handle_message(struct message_t message)
 void sigchld_handler(int signum)
 {
     (void) signum; /* silence unused warning */
-    wait(NULL);
+    waitpid(-1, NULL, 0);
 }
 
 int main()
@@ -158,7 +158,7 @@ int main()
     fromlen = sizeof(struct sockaddr_in);
 
     /* listen for signals from the children we spawn */
-    signal(SIGCHLD, *sigchld_handler);
+    signal(SIGCHLD, sigchld_handler);
 
     while (1)
     {

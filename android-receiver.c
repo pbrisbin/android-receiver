@@ -21,89 +21,63 @@ struct message_t
     char *msg_text;
 };
 
-void             error(char *msg);
-struct message_t parse_message(char *msg);
-void             handle_message(struct message_t message);
-
 /* error and die */
-void error(char *msg)
+static void error(char *msg)
 {
     perror(msg);
     exit(EXIT_FAILURE);
 }
 
 /* we only handle v2 for now */
-struct message_t parse_message(char *msg)
+static struct message_t *parse_message(char *msg)
 {
-    struct message_t message;
-
-    char *ptr = msg;
-
-    char delim = '/';
-
+    struct message_t *message;
+    char *tok;
     int field = 0;
 
-    int  c = 0; /* n position in the overall string       */
-    int  i = 0; /* accumulated length of last seen field  */
-    int  j = 0; /* n position of start of last seen field */
+    message = calloc(1, sizeof *message);
 
-    while (1)
+    for (tok = strsep(&msg, "/"); *tok; tok = strsep(&msg, "/"))
     {
-        if (*ptr == delim)
+        switch (++field)
         {
-            field++;
+            case 4:
+                if (tok)
+                    message->msg_type = strdup(tok);
+                break;
 
-            /* there's a possibility of slashes in the sixth field so we'll
-             * parse up to 5 and let the rest be picked up after the loop */
-            if (field <= 5)
-            {
-                if (i) /* these three lines made my head hurt */
-                    j += i + 1;
+            case 5:
+                message->msg_data = strdup(tok);
 
-                i = c - j;
-
-                switch(field)
+                if (msg)
                 {
-                    case 4:
-                        message.msg_type = strndup(msg + j, i);
-                        break;
-                    case 5:
-                        message.msg_data = strndup(msg + j, i);
-                        break;
+                    /* grab everything else */
+                    tok = strsep(&msg, "\0");
+                    if (tok)
+                        message->msg_text = strdup(tok);
                 }
-            }
+
+                return message;
         }
-
-        c++;
-
-        /* EOM */
-        if (*ptr++ == '\0')
-            break;
     }
-
-    j += i + 1;
-    i  = c - j;
-
-    /* the last field is the text */
-    message.msg_text = strndup(msg + j, i);
 
     return message;
 }
 
 /* for now we just hand off to my existing bash script */
-void handle_message(struct message_t message)
+static void handle_message(struct message_t *message)
 {
     char *msg;
 
-    if (strcmp(message.msg_type, "RING") == 0)
+    if (strcmp(message->msg_type, "RING") == 0)
     {
-        asprintf(&msg, "  -!-  Call from %s", message.msg_text);
+        asprintf(&msg, "  -!-  Call from %s", message->msg_text);
     }
-    else if (strcmp(message.msg_type, "SMS")  == 0 ||
-             strcmp(message.msg_type, "MMS")  == 0 ||
-             strcmp(message.msg_type, "PING") == 0) /* test message */
+    else if (strcmp(message->msg_type, "SMS")  == 0 ||
+             strcmp(message->msg_type, "MMS")  == 0 ||
+             strcmp(message->msg_type, "PING") == 0) /* test message */
     {
-        asprintf(&msg, "  -!-  %s", message.msg_text);
+        asprintf(&msg, "  -!-  %s", message->msg_text);
     }
     else {
         msg = NULL;
@@ -117,10 +91,10 @@ void handle_message(struct message_t message)
 }
 
 /* signal handler for the forked handler processes */
-void sigchld_handler(int signum)
+static void sigchld_handler(int signum)
 {
     (void) signum; /* silence unused warning */
-    waitpid(-1, NULL, 0);
+    while (waitpid(-1, NULL, WNOHANG) > 0);
 }
 
 int main()
@@ -130,10 +104,12 @@ int main()
     int          length;
     int          n;
 
-    struct message_t message;
+    struct message_t *message;
 
     struct sockaddr_in server;
     struct sockaddr_in from;
+
+    struct sigaction sig_child;
 
     char buf[1024];
 
@@ -158,7 +134,10 @@ int main()
     fromlen = sizeof(struct sockaddr_in);
 
     /* listen for signals from the children we spawn */
-    signal(SIGCHLD, sigchld_handler);
+    sig_child.sa_handler = &sigchld_handler;
+    sigemptyset(&sig_child.sa_mask);
+    sig_child.sa_flags = 0;
+    sigaction(SIGCHLD, &sig_child, NULL);
 
     while (1)
     {

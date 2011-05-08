@@ -9,9 +9,9 @@
 #include <signal.h>
 #include <sys/wait.h>
 
-/* configuration */
-#define PORTNO  10600
-#define HANDLER "dzen-handler"
+/* global option vars */
+unsigned int portno = 10600;
+char *handler;
 
 /* just the parts we care about */
 struct message_t
@@ -25,6 +25,38 @@ struct message_t
 static void error(char *msg)
 {
     perror(msg);
+    exit(EXIT_FAILURE);
+}
+
+/* sets handler and portno or reports failure on invalid options */
+static void handle_options(int argc, char *argv[])
+{
+    switch (argc)
+    {
+        case 3: /* port can be omitted */
+            if (strcmp(argv[1], "--handler") == 0)
+            {
+                handler = argv[2];
+                return;
+            }
+            break;
+
+        case 5:
+            if (strcmp(argv[1], "--port") == 0)
+            {
+                portno = atoi(argv[2]);
+
+                if (strcmp(argv[3], "--handler") == 0)
+                {
+                    handler = argv[4];
+                    return;
+                }
+            }
+            break;
+    }
+
+    /* if we get here, we fail */
+    printf( "usage: %s [ --port <port> ] --handler <handler>\n", argv[0] );
     exit(EXIT_FAILURE);
 }
 
@@ -86,8 +118,8 @@ static void handle_message(struct message_t *message)
     if (!msg)
         return;
 
-    char *flags[] = { HANDLER, msg, NULL };
-    execvp(HANDLER, flags);
+    char *flags[] = { handler, msg, NULL };
+    execvp(handler, flags);
 }
 
 /* signal handler for the forked handler processes */
@@ -97,23 +129,20 @@ static void sigchld_handler(int signum)
     while (waitpid(-1, NULL, WNOHANG) > 0);
 }
 
-int main()
+int main(int argc, char *argv[])
 {
     unsigned int fromlen;
-    int          sock;
-    int          length;
-    int          n;
+    int          sock, length, n;
 
     struct message_t *message;
-
-    struct sockaddr_in server;
-    struct sockaddr_in from;
-
+    struct sockaddr_in server, from;
     struct sigaction sig_child;
 
     char buf[1024];
-
     pid_t pid;
+
+    /* parse for --port and --handler */
+    handle_options(argc, argv);
 
     sock = socket(AF_INET, SOCK_DGRAM, 0);
 
@@ -126,7 +155,7 @@ int main()
 
     server.sin_family      = AF_INET;
     server.sin_addr.s_addr = INADDR_ANY;
-    server.sin_port        = htons(PORTNO);
+    server.sin_port        = htons(portno);
 
     if (bind(sock, (struct sockaddr *)&server, length) < 0) 
         error("binding to socket");

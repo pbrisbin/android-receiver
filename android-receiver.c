@@ -124,7 +124,6 @@ static struct message_t *parse_message(char *msg)
     return message;
 }
 
-/* for now we just hand off to my existing bash script */
 static void handle_message(struct message_t *message)
 {
     char *msg;
@@ -150,7 +149,6 @@ static void handle_message(struct message_t *message)
     execvp(handler, flags);
 }
 
-/* signal handler for the forked handler processes */
 static void sigchld_handler(int signum)
 {
     (void) signum; /* silence unused warning */
@@ -159,21 +157,39 @@ static void sigchld_handler(int signum)
 
 int main(int argc, char *argv[])
 {
-    unsigned int fromlen;
-    int          sock, length, n;
-
-    struct message_t *message;
-    struct sockaddr_in server, from;
-    struct sigaction sig_child;
-
-    char buf[1024];
     pid_t pid;
+    struct sigaction sig_child;
 
     /* parse for --port and --handler */
     if (handle_options(argc, argv) != 0)
     {
         help_message();
     }
+
+    /* install a signal handler for any spawned children */
+    sig_child.sa_handler = &sigchld_handler;
+    sigemptyset(&sig_child.sa_mask);
+    sig_child.sa_flags = 0;
+    sigaction(SIGCHLD, &sig_child, NULL);
+
+    /* fork the main process to background, report
+     * its pid and exit */
+    pid = fork();
+
+    if (pid != 0)
+    {
+        printf("forked to background with pid %i\n", pid);
+        exit(EXIT_SUCCESS);
+    }
+
+    /* continue main program logic */
+    unsigned int fromlen;
+    int          sock, length, n;
+
+    struct message_t *message;
+    struct sockaddr_in server, from;
+
+    char buf[1024];
 
     sock = socket(AF_INET, SOCK_DGRAM, 0);
 
@@ -192,12 +208,6 @@ int main(int argc, char *argv[])
         error("binding to socket");
 
     fromlen = sizeof(struct sockaddr_in);
-
-    /* listen for signals from the children we spawn */
-    sig_child.sa_handler = &sigchld_handler;
-    sigemptyset(&sig_child.sa_mask);
-    sig_child.sa_flags = 0;
-    sigaction(SIGCHLD, &sig_child, NULL);
 
     while (1)
     {

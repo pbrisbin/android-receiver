@@ -15,23 +15,20 @@ int portno = 10600;
 char *handler;
 
 /* just the parts we care about */
-struct message_t
-{
+struct message_t {
     char *msg_type;
     char *msg_data;
     char *msg_text;
 };
 
 /* error and die */
-static void error(char *msg)
-{
+static void error(char *msg) {
     perror(msg);
     exit(EXIT_FAILURE);
 }
 
 /* a help message */
-static void help_message()
-{
+static void help_message() {
     fprintf(stderr, "usage: android-receiver [ --port <port> ] --handler <handler>\n\n");
     fprintf(stderr,
         "  -p, --port           the port to listen on; optional, defaults to 10600.\n"
@@ -43,8 +40,7 @@ static void help_message()
 }
 
 /* sets handler and portno or reports failure on invalid options */
-static int handle_options(int argc, char *argv[])
-{
+static int handle_options(int argc, char *argv[]) {
     int opt, option_index = 0;
 
     static struct option opts[] = {
@@ -53,12 +49,10 @@ static int handle_options(int argc, char *argv[])
         { 0        , 0                , 0, 0  }
     };
 
-    while ((opt = getopt_long(argc, argv, "p:h:", opts, &option_index)) != -1)
-    {
+    while ((opt = getopt_long(argc, argv, "p:h:", opts, &option_index)) != -1) {
         char *token;
 
-        switch(opt)
-        {
+        switch(opt) {
             case 'p':
                 portno = strtol(optarg, &token, 10);
                 if (*token != '\0' || portno <= 0 || portno > 65535)
@@ -79,8 +73,7 @@ static int handle_options(int argc, char *argv[])
         }
     }
 
-    if (!handler)
-    {
+    if (!handler) {
         fprintf(stderr, "error: handler is required\n\n");
         return 1;
     }
@@ -89,18 +82,15 @@ static int handle_options(int argc, char *argv[])
 }
 
 /* we only handle v2 for now */
-static struct message_t *parse_message(char *msg)
-{
+static struct message_t *parse_message(char *msg) {
     struct message_t *message;
     char *tok;
     int field = 0;
 
     message = malloc(sizeof message);
 
-    for (tok = strsep(&msg, "/"); *tok; tok = strsep(&msg, "/"))
-    {
-        switch (++field)
-        {
+    for (tok = strsep(&msg, "/"); *tok; tok = strsep(&msg, "/")) {
+        switch (++field) {
             case 4:
                 if (tok)
                     message->msg_type = strdup(tok);
@@ -109,8 +99,7 @@ static struct message_t *parse_message(char *msg)
             case 5:
                 message->msg_data = strdup(tok);
 
-                if (msg)
-                {
+                if (msg) {
                     /* grab everything else */
                     tok = strsep(&msg, "\0");
                     if (tok)
@@ -125,18 +114,15 @@ static struct message_t *parse_message(char *msg)
 }
 
 /* for now we just hand off to my existing bash script */
-static void handle_message(struct message_t *message)
-{
+static void handle_message(struct message_t *message) {
     char *msg;
 
-    if (strcmp(message->msg_type, "RING") == 0)
-    {
+    if (strcmp(message->msg_type, "RING") == 0) {
         asprintf(&msg, "  -!-  Call from %s", message->msg_text);
     }
     else if (strcmp(message->msg_type, "SMS")  == 0 ||
              strcmp(message->msg_type, "MMS")  == 0 ||
-             strcmp(message->msg_type, "PING") == 0) /* test message */
-    {
+             strcmp(message->msg_type, "PING") == 0) { /* test message */
         asprintf(&msg, "  -!-  %s", message->msg_text);
     }
     else {
@@ -151,14 +137,12 @@ static void handle_message(struct message_t *message)
 }
 
 /* signal handler for the forked handler processes */
-static void sigchld_handler(int signum)
-{
+static void sigchld_handler(int signum) {
     (void) signum; /* silence unused warning */
     while (waitpid(-1, NULL, WNOHANG) > 0);
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
     unsigned int fromlen;
     int          sock, length, n;
 
@@ -170,8 +154,7 @@ int main(int argc, char *argv[])
     pid_t pid;
 
     /* parse for --port and --handler */
-    if (handle_options(argc, argv) != 0)
-    {
+    if (handle_options(argc, argv) != 0) {
         help_message();
     }
 
@@ -199,8 +182,7 @@ int main(int argc, char *argv[])
     sig_child.sa_flags = 0;
     sigaction(SIGCHLD, &sig_child, NULL);
 
-    while (1)
-    {
+    while (1) {
         n = recvfrom(sock, buf, 1024, 0, (struct sockaddr *)&from, &fromlen);
 
         if (n < 0) 

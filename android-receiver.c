@@ -95,7 +95,7 @@ static struct message_t *parse_message(char *msg)
     char *tok;
     int field = 0;
 
-    message = calloc(1, sizeof *message);
+    message = malloc(sizeof message);
 
     for (tok = strsep(&msg, "/"); *tok; tok = strsep(&msg, "/"))
     {

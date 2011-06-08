@@ -162,7 +162,7 @@ int main(int argc, char *argv[]) {
         help_message();
 
     if ((sock = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
-        error("opening socket");
+        error("error opening socket");
 
     memset(&server, '\0', sizeof server);
 
@@ -171,7 +171,7 @@ int main(int argc, char *argv[]) {
     server.sin_addr.s_addr = INADDR_ANY;
 
     if (bind(sock, (struct sockaddr *)&server, sizeof server) < 0) 
-        error("binding to socket");
+        error("error binding to socket");
 
     /* listen for signals from the children we spawn */
     sig_child.sa_flags   = 0;
@@ -181,7 +181,7 @@ int main(int argc, char *argv[]) {
 
     while (1) {
         if ((n = recvfrom(sock, buf, 1024, 0, (struct sockaddr *)&from, &fromlen)) < 0)
-            error("receiving from socket");
+            error("errorreceiving from socket");
 
         if (fork() == 0) {
             message = parse_message(buf);

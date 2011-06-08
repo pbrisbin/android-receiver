@@ -55,8 +55,7 @@ static int handle_options(int argc, char *argv[]) {
         switch(opt) {
             case 'p':
                 portno = strtol(optarg, &token, 10);
-                if (*token != '\0' || portno <= 0 || portno > 65535)
-                {
+                if (*token != '\0' || portno <= 0 || portno > 65535) {
                     fprintf(stderr, "error: invalid port number\n\n");
                     return 1;
                 }

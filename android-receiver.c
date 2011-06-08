@@ -10,34 +10,37 @@
 #include <sys/wait.h>
 #include <getopt.h>
 
+/* separates message fields */
 #define TOK  "/"
 
+/* message types */
 #define RING "RING"
 #define SMS  "SMS"
 #define MMS  "MMS"
 #define PING "PING"
 
+/* string formats */
 #define FMTCALL  "  -!-  Call from %s"
 #define FMTOTHER "  -!-  %s"
 
-/* global option vars */
-int portno = 10600;
-char *handler;
+#define STREQ(a, b) strcmp((a),(b)) == 0
 
-/* just the parts we care about */
+
+static int  portno = 10600;
+static char *handler;
+
 struct message_t {
-    char *msg_type;
-    char *msg_data;
-    char *msg_text;
+    char *type;
+    char *data;
+    char *text;
 };
 
-/* error and die */
 static void error(char *msg) {
     perror(msg);
     exit(EXIT_FAILURE);
 }
 
-/* a help message */
+
 static void help_message() {
     fprintf(stderr, "usage: android-receiver [ --port <port> ] --handler <handler>\n\n");
     fprintf(stderr,
@@ -49,9 +52,9 @@ static void help_message() {
     exit(EXIT_FAILURE);
 }
 
-/* sets handler and portno or reports failure on invalid options */
 static int handle_options(int argc, char *argv[]) {
     int opt, option_index = 0;
+    char *token;
 
     static struct option opts[] = {
         { "port"   , required_argument, 0, 'p'},
@@ -60,7 +63,6 @@ static int handle_options(int argc, char *argv[]) {
     };
 
     while ((opt = getopt_long(argc, argv, "p:h:", opts, &option_index)) != -1) {
-        char *token;
 
         switch(opt) {
             case 'p':
@@ -75,8 +77,6 @@ static int handle_options(int argc, char *argv[]) {
                 handler = optarg;
                 break;
 
-            case '?':
-                return 1;
             default:
                 return 1;
         }
@@ -90,7 +90,6 @@ static int handle_options(int argc, char *argv[]) {
     return 0;
 }
 
-/* we only handle v2 for now */
 static struct message_t *parse_message(char *msg) {
     struct message_t *message;
     char *tok;
@@ -98,21 +97,21 @@ static struct message_t *parse_message(char *msg) {
 
     message = malloc(sizeof *message);
 
+    /* we only handle v2 message types */
     for (tok = strsep(&msg, TOK); *tok; tok = strsep(&msg, TOK)) {
         switch (++field) {
             case 4:
                 if (tok)
-                    message->msg_type = strdup(tok);
+                    message->type = strdup(tok);
                 break;
 
             case 5:
-                message->msg_data = strdup(tok);
+                message->data = strdup(tok);
 
                 if (msg) {
                     /* grab everything else */
-                    tok = strsep(&msg, "\0");
-                    if (tok)
-                        message->msg_text = strdup(tok);
+                    if ((tok = strsep(&msg, "\0")))
+                        message->text = strdup(tok);
                 }
 
                 return message;
@@ -122,17 +121,16 @@ static struct message_t *parse_message(char *msg) {
     return message;
 }
 
-/* for now we just hand off to my existing bash script */
 static void handle_message(struct message_t *message) {
     char *msg;
 
-    if (strcmp(message->msg_type, RING) == 0) {
-        asprintf(&msg, FMTCALL, message->msg_text);
+    if (STREQ(message->type, RING)) {
+        asprintf(&msg, FMTCALL, message->text);
     }
-    else if (strcmp(message->msg_type, SMS)  == 0 ||
-             strcmp(message->msg_type, MMS)  == 0 ||
-             strcmp(message->msg_type, PING) == 0) { /* test message */
-        asprintf(&msg, FMTOTHER, message->msg_text);
+    else if ( STREQ(message->type, SMS ) ||
+              STREQ(message->type, MMS ) ||
+              STREQ(message->type, PING) ) { /* test message */
+        asprintf(&msg, FMTOTHER, message->text);
     }
     else {
         msg = NULL;
@@ -145,61 +143,47 @@ static void handle_message(struct message_t *message) {
     execvp(handler, flags);
 }
 
-/* signal handler for the forked handler processes */
 static void sigchld_handler(int signum) {
-    (void) signum; /* silence unused warning */
+    (void) signum; /* silence 'unused' warning */
     while (waitpid(-1, NULL, WNOHANG) > 0);
 }
 
 int main(int argc, char *argv[]) {
-    unsigned int fromlen;
-    int          sock, length, n;
-
-    struct message_t *message;
-    struct sockaddr_in server, from;
-    struct sigaction sig_child;
-
     char buf[1024];
-    pid_t pid;
 
-    /* parse for --port and --handler */
-    if (handle_options(argc, argv) != 0) {
+    struct message_t    *message;
+    struct sockaddr_in  server, from;
+    struct sigaction    sig_child;
+
+    int          sock, n;
+    unsigned int fromlen = sizeof from;
+
+    if (handle_options(argc, argv) != 0)
         help_message();
-    }
 
-    sock = socket(AF_INET, SOCK_DGRAM, 0);
-
-    if (sock < 0) 
+    if ((sock = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
         error("opening socket");
 
-    length = sizeof(server);
-
-    memset(&server, '\0', length);
+    memset(&server, '\0', sizeof server);
 
     server.sin_family      = AF_INET;
-    server.sin_addr.s_addr = INADDR_ANY;
     server.sin_port        = htons(portno);
+    server.sin_addr.s_addr = INADDR_ANY;
 
-    if (bind(sock, (struct sockaddr *)&server, length) < 0) 
+    if (bind(sock, (struct sockaddr *)&server, sizeof server) < 0) 
         error("binding to socket");
 
-    fromlen = sizeof(struct sockaddr_in);
-
     /* listen for signals from the children we spawn */
+    sig_child.sa_flags   = 0;
     sig_child.sa_handler = &sigchld_handler;
     sigemptyset(&sig_child.sa_mask);
-    sig_child.sa_flags = 0;
     sigaction(SIGCHLD, &sig_child, NULL);
 
     while (1) {
-        n = recvfrom(sock, buf, 1024, 0, (struct sockaddr *)&from, &fromlen);
-
-        if (n < 0) 
+        if ((n = recvfrom(sock, buf, 1024, 0, (struct sockaddr *)&from, &fromlen)) < 0)
             error("receiving from socket");
 
-        pid = fork();
-
-        if (pid == 0) {
+        if (fork() == 0) {
             message = parse_message(buf);
             handle_message(message);
             exit(EXIT_SUCCESS);

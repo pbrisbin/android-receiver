@@ -10,6 +10,16 @@
 #include <sys/wait.h>
 #include <getopt.h>
 
+#define TOK  "/"
+
+#define RING "RING"
+#define SMS  "SMS"
+#define MMS  "MMS"
+#define PING "PING"
+
+#define FMTCALL  "  -!-  Call from %s"
+#define FMTOTHER "  -!-  %s"
+
 /* global option vars */
 int portno = 10600;
 char *handler;
@@ -88,7 +98,7 @@ static struct message_t *parse_message(char *msg) {
 
     message = malloc(sizeof *message);
 
-    for (tok = strsep(&msg, "/"); *tok; tok = strsep(&msg, "/")) {
+    for (tok = strsep(&msg, TOK); *tok; tok = strsep(&msg, TOK)) {
         switch (++field) {
             case 4:
                 if (tok)
@@ -116,13 +126,13 @@ static struct message_t *parse_message(char *msg) {
 static void handle_message(struct message_t *message) {
     char *msg;
 
-    if (strcmp(message->msg_type, "RING") == 0) {
-        asprintf(&msg, "  -!-  Call from %s", message->msg_text);
+    if (strcmp(message->msg_type, RING) == 0) {
+        asprintf(&msg, FMTCALL, message->msg_text);
     }
-    else if (strcmp(message->msg_type, "SMS")  == 0 ||
-             strcmp(message->msg_type, "MMS")  == 0 ||
-             strcmp(message->msg_type, "PING") == 0) { /* test message */
-        asprintf(&msg, "  -!-  %s", message->msg_text);
+    else if (strcmp(message->msg_type, SMS)  == 0 ||
+             strcmp(message->msg_type, MMS)  == 0 ||
+             strcmp(message->msg_type, PING) == 0) { /* test message */
+        asprintf(&msg, FMTOTHER, message->msg_text);
     }
     else {
         msg = NULL;

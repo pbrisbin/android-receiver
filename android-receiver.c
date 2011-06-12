@@ -9,6 +9,7 @@
 #include <signal.h>
 #include <sys/wait.h>
 #include <getopt.h>
+#include <errno.h>
 
 /* separates message fields */
 #define TOK  "/"
@@ -180,8 +181,11 @@ int main(int argc, char *argv[]) {
     sigaction(SIGCHLD, &sig_child, NULL);
 
     while (1) {
-        if ((n = recvfrom(sock, buf, 1024, 0, (struct sockaddr *)&from, &fromlen)) < 0)
-            error("errorreceiving from socket");
+        while ((n = recvfrom(sock, buf, 1024, 0, (struct sockaddr *)&from, &fromlen)) < 0 && errno == EINTR)
+            ;
+
+        if (n < 0)
+            error("error receiving from socket");
 
         if (fork() == 0) {
             message = parse_message(buf);

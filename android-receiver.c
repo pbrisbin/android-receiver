@@ -11,27 +11,26 @@
 #include <getopt.h>
 #include <errno.h>
 
-/* separates message fields */
-#define TOK  "/"
-
-/* message types */
-#define RING "RING"
-#define SMS  "SMS"
-#define MMS  "MMS"
-#define PING "PING"
-
-/* string formats */
+#define TOK      "/"
 #define FMTCALL  "  -!-  Call from %s"
 #define FMTOTHER "  -!-  %s"
 
 #define STREQ(a, b) strcmp((a),(b)) == 0
 
-
 static int  portno = 10600;
 static char *handler;
 
+enum msgtype {
+    Ring,
+    SMS,
+    MMS,
+    Battery,
+    Ping,
+    Unknown
+};
+
 struct message_t {
-    char *type;
+    enum msgtype type;
     char *data;
     char *text;
 };
@@ -40,7 +39,6 @@ static void error(char *msg) {
     perror(msg);
     exit(EXIT_FAILURE);
 }
-
 
 static void help_message() {
     fprintf(stderr, "usage: android-receiver [ --port <port> ] --handler <handler>\n\n");
@@ -102,8 +100,14 @@ static struct message_t *parse_message(char *msg) {
     for (tok = strsep(&msg, TOK); *tok; tok = strsep(&msg, TOK)) {
         switch (++field) {
             case 4:
-                if (tok)
-                    message->type = strdup(tok);
+                if (tok) {
+                    if      (STREQ(tok, "RING"))    message->type = Ring;
+                    else if (STREQ(tok, "SMS"))     message->type = SMS;
+                    else if (STREQ(tok, "MMS"))     message->type = MMS;
+                    else if (STREQ(tok, "BATTERY")) message->type = Battery;
+                    else if (STREQ(tok, "PING"))    message->type = Ping;
+                    else message->type = Unknown;
+                }
                 break;
 
             case 5:
@@ -125,16 +129,22 @@ static struct message_t *parse_message(char *msg) {
 static void handle_message(struct message_t *message) {
     char *msg;
 
-    if (STREQ(message->type, RING)) {
-        asprintf(&msg, FMTCALL, message->text);
-    }
-    else if ( STREQ(message->type, SMS ) ||
-              STREQ(message->type, MMS ) ||
-              STREQ(message->type, PING) ) { /* test message */
-        asprintf(&msg, FMTOTHER, message->text);
-    }
-    else {
-        msg = NULL;
+    switch (message->type) {
+        case Ring:
+            asprintf(&msg, FMTCALL, message->text);
+            break;
+
+        case SMS:
+        case MMS:
+        case Battery:
+            asprintf(&msg, FMTOTHER, message->text);
+            break;
+
+        case Ping:
+            asprintf(&msg, FMTOTHER, "Test notification");
+            break;
+
+        default: msg = NULL;
     }
 
     if (!msg)

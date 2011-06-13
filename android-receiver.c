@@ -15,12 +15,13 @@
 #define FMTCALL  "  -!-  Call from %s"
 #define FMTOTHER "  -!-  %s"
 
-#define STREQ(a, b) strcmp((a),(b)) == 0
+#define STREQ(a, b)     strcmp((a),(b)) == 0
+#define STRDUP(a, b)    if ((b)) a = strdup((b))
 
 static int  portno = 10600;
 static char *handler;
 
-enum msgtype {
+enum etype {
     Ring,
     SMS,
     MMS,
@@ -30,17 +31,21 @@ enum msgtype {
 };
 
 struct message_t {
-    enum msgtype type;
-    char *data;
-    char *text;
+    int         version;
+    char *      device_id;
+    char *      notification_id;
+    enum etype  event_type;
+    char *      data;
+    char *      event_contents;
 };
 
-static void error(char *msg) {
+static void error(char *msg) { /* {{{ */
     perror(msg);
     exit(EXIT_FAILURE);
 }
+/* }}} */
 
-static void help_message() {
+static void help_message() { /* {{{ */
     fprintf(stderr, "usage: android-receiver [ --port <port> ] --handler <handler>\n\n");
     fprintf(stderr,
         "  -p, --port           the port to listen on; optional, defaults to 10600.\n"
@@ -50,8 +55,9 @@ static void help_message() {
 
     exit(EXIT_FAILURE);
 }
+/* }}} */
 
-static int handle_options(int argc, char *argv[]) {
+static int handle_options(int argc, char *argv[]) { /* {{{ */
     int opt, option_index = 0;
     char *token;
 
@@ -88,56 +94,63 @@ static int handle_options(int argc, char *argv[]) {
 
     return 0;
 }
+/* }}} */
 
-static struct message_t *parse_message(char *msg) {
+static struct message_t *parse_message(char *msg) { /* {{{ */
     struct message_t *message;
     char *tok;
     int field = 0;
 
     message = malloc(sizeof *message);
 
-    /* we only handle v2 message types */
+
     for (tok = strsep(&msg, TOK); *tok; tok = strsep(&msg, TOK)) {
         switch (++field) {
+            case 1:
+                if (tok) {
+                    if (STREQ(tok, "v2"))
+                        message->version = 2;
+                    else
+                        message->version = 1;
+                }
+                break;
+
+            case 2: STRDUP(message->device_id, tok); break;
+            case 3: STRDUP(message->notification_id, tok); break;
             case 4:
                 if (tok) {
-                    if      (STREQ(tok, "RING"))    message->type = Ring;
-                    else if (STREQ(tok, "SMS"))     message->type = SMS;
-                    else if (STREQ(tok, "MMS"))     message->type = MMS;
-                    else if (STREQ(tok, "BATTERY")) message->type = Battery;
-                    else if (STREQ(tok, "PING"))    message->type = Ping;
-                    else message->type = Unknown;
+                    if      (STREQ(tok, "RING"))    message->event_type = Ring;
+                    else if (STREQ(tok, "SMS"))     message->event_type = SMS;
+                    else if (STREQ(tok, "MMS"))     message->event_type = MMS;
+                    else if (STREQ(tok, "BATTERY")) message->event_type = Battery;
+                    else if (STREQ(tok, "PING"))    message->event_type = Ping;
+                    else message->event_type = Unknown;
                 }
                 break;
 
             case 5:
-                message->data = strdup(tok);
-
-                if (msg) {
-                    /* grab everything else */
-                    if ((tok = strsep(&msg, "\0")))
-                        message->text = strdup(tok);
-                }
-
+                STRDUP(message->data, tok);
+                STRDUP(message->event_contents, msg); /* everything else */
                 return message;
         }
     }
 
     return message;
 }
+/* }}} */
 
-static void handle_message(struct message_t *message) {
+static void handle_message(struct message_t *message) { /* {{{ */
     char *msg;
 
-    switch (message->type) {
+    switch (message->event_type) {
         case Ring:
-            asprintf(&msg, FMTCALL, message->text);
+            asprintf(&msg, FMTCALL, message->event_contents);
             break;
 
         case SMS:
         case MMS:
         case Battery:
-            asprintf(&msg, FMTOTHER, message->text);
+            asprintf(&msg, FMTOTHER, message->event_contents);
             break;
 
         case Ping:
@@ -153,13 +166,15 @@ static void handle_message(struct message_t *message) {
     char *flags[] = { handler, msg, NULL };
     execvp(handler, flags);
 }
+/* }}} */
 
-static void sigchld_handler(int signum) {
+static void sigchld_handler(int signum) { /* {{{ */
     (void) signum; /* silence 'unused' warning */
     while (waitpid(-1, NULL, WNOHANG) > 0);
 }
+/* }}} */
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[]) { /* {{{ */
     char buf[1024];
 
     struct message_t    *message;
@@ -204,3 +219,4 @@ int main(int argc, char *argv[]) {
         }
     }
 }
+/* }}} */

@@ -68,7 +68,6 @@ static int handle_options(int argc, char *argv[]) { /* {{{ */
     };
 
     while ((opt = getopt_long(argc, argv, "p:h:", opts, &option_index)) != -1) {
-
         switch(opt) {
             case 'p':
                 portno = strtol(optarg, &token, 10);
@@ -98,38 +97,50 @@ static int handle_options(int argc, char *argv[]) { /* {{{ */
 
 static struct message_t *parse_message(char *msg) { /* {{{ */
     struct message_t *message;
+    char *tmp;
     char *tok;
     int field = 0;
 
     message = malloc(sizeof *message);
 
+    /* v1:        device_id / notification_id / event_type /        event_contents */
+    /* v2: "v2" / device_id / notification_id / event_type / data / event_contents */
     for (tok = strsep(&msg, TOK); ++field <= 5; tok = strsep(&msg, TOK)) {
         switch (field) {
             case 1:
-                if (tok) {
-                    if (STREQ(tok, "v2"))
-                        message->version = 2;
-                    else
-                        message->version = 1;
+                if (tok && STREQ(tok, "v2"))
+                    message->version = 2;
+                else {
+                    /* rebuild a v1 msg to start parsing at field 2 */
+                    message->version = 1;
+                    tmp = strdup(msg);
+                    strcat(tok, TOK);
+                    strcat(tok, tmp);
+                    msg = tok;
                 }
                 break;
 
-            case 2: STRDUP(message->device_id, tok); break;
+            case 2: STRDUP(message->device_id, tok);       break;
             case 3: STRDUP(message->notification_id, tok); break;
+
             case 4:
-                if (tok) {
-                    if      (STREQ(tok, "RING"))    message->event_type = Ring;
-                    else if (STREQ(tok, "SMS"))     message->event_type = SMS;
-                    else if (STREQ(tok, "MMS"))     message->event_type = MMS;
-                    else if (STREQ(tok, "BATTERY")) message->event_type = Battery;
-                    else if (STREQ(tok, "PING"))    message->event_type = Ping;
-                    else message->event_type = Unknown;
+                if      (STREQ(tok, "RING"))    message->event_type = Ring;
+                else if (STREQ(tok, "SMS"))     message->event_type = SMS;
+                else if (STREQ(tok, "MMS"))     message->event_type = MMS;
+                else if (STREQ(tok, "BATTERY")) message->event_type = Battery;
+                else if (STREQ(tok, "PING"))    message->event_type = Ping;
+                else                            message->event_type = Unknown;
+
+                if (message->version == 1) {
+                    /* for v1, grab everything else and return */
+                    STRDUP(message->event_contents, msg);
+                    return message;
                 }
                 break;
 
             case 5:
                 STRDUP(message->data, tok);
-                STRDUP(message->event_contents, msg); /* everything else */
+                STRDUP(message->event_contents, msg);
                 return message;
         }
     }

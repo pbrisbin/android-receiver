@@ -149,7 +149,7 @@ static void handle_message(struct message_t *message) { /* {{{ */
         case SMS:
         case MMS:
         case Battery:
-        case Ping:
+        case Ping: /* todo: other type-specific formats */
             asprintf(&msg, FMTOTHER, message->event_contents);
             break;
 

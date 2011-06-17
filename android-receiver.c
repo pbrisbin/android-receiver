@@ -103,9 +103,8 @@ static struct message_t *parse_message(char *msg) { /* {{{ */
 
     message = malloc(sizeof *message);
 
-
-    for (tok = strsep(&msg, TOK); *tok; tok = strsep(&msg, TOK)) {
-        switch (++field) {
+    for (tok = strsep(&msg, TOK); ++field <= 5; tok = strsep(&msg, TOK)) {
+        switch (field) {
             case 1:
                 if (tok) {
                     if (STREQ(tok, "v2"))
@@ -150,11 +149,8 @@ static void handle_message(struct message_t *message) { /* {{{ */
         case SMS:
         case MMS:
         case Battery:
-            asprintf(&msg, FMTOTHER, message->event_contents);
-            break;
-
         case Ping:
-            asprintf(&msg, FMTOTHER, "Test notification");
+            asprintf(&msg, FMTOTHER, message->event_contents);
             break;
 
         default: msg = NULL;
@@ -211,6 +207,8 @@ int main(int argc, char *argv[]) { /* {{{ */
 
         if (n < 0)
             error("error receiving from socket");
+
+        printf("message received: %s\n", buf);
 
         if (fork() == 0) {
             message = parse_message(buf);

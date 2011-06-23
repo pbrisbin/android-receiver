@@ -46,12 +46,10 @@ static void error(char *msg) { /* {{{ */
 /* }}} */
 
 static void help_message() { /* {{{ */
-    fprintf(stderr, "usage: android-receiver [ --port <port> ] --handler <handler>\n\n");
-    fprintf(stderr,
-        "  -p, --port           the port to listen on; optional, defaults to 10600.\n"
-        "  -h, --handler        an exectuable to handle the message. will be called\n"
-        "                       with the formatted message as its first and only\n"
-        "                       argument.\n\n");
+    fprintf(stderr, "usage: android-receiver [ -p <port> ] -h <handler>                          \n"
+                    "    -p, --port     the port to listen on. optional, defaults to 10600.      \n"
+                    "    -h, --handler  an executable to handle the message. will be called with \n"
+                    "                   the formatted message as its first and only argument.    \n");
 
     exit(EXIT_FAILURE);
 }

@@ -6,7 +6,6 @@
 #include <unistd.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
-#include <signal.h>
 #include <sys/wait.h>
 #include <getopt.h>
 #include <errno.h>
@@ -168,14 +167,8 @@ static void handle_message(struct message_t *message) { /* {{{ */
     if (!msg)
         return;
 
-    char *flags[] = { handler, msg, NULL };
+    char *flags[] = { handler, msg, (char *)NULL };
     execvp(handler, flags);
-}
-/* }}} */
-
-static void sigchld_handler(int signum) { /* {{{ */
-    (void) signum; /* silence 'unused' warning */
-    while (waitpid(-1, NULL, WNOHANG) > 0);
 }
 /* }}} */
 
@@ -184,7 +177,6 @@ int main(int argc, char *argv[]) { /* {{{ */
 
     struct message_t    *message;
     struct sockaddr_in  server, from;
-    struct sigaction    sig_child;
 
     int          sock, n;
     unsigned int fromlen = sizeof from;
@@ -204,12 +196,6 @@ int main(int argc, char *argv[]) { /* {{{ */
     if (bind(sock, (struct sockaddr *)&server, sizeof server) < 0) 
         error("error binding to socket");
 
-    /* listen for signals from the children we spawn */
-    sig_child.sa_flags   = 0;
-    sig_child.sa_handler = &sigchld_handler;
-    sigemptyset(&sig_child.sa_mask);
-    sigaction(SIGCHLD, &sig_child, NULL);
-
     while (1) {
         while ((n = recvfrom(sock, buf, 1024, 0, (struct sockaddr *)&from, &fromlen)) < 0 && errno == EINTR)
             ;
@@ -219,11 +205,17 @@ int main(int argc, char *argv[]) { /* {{{ */
 
         printf("message received: %s\n", buf);
 
+        /* double-fork taken from dzen2/util.c; avoids zombie processes
+         * without requiring a signal handler. */
         if (fork() == 0) {
-            message = parse_message(buf);
-            handle_message(message);
+            if (fork() == 0) {
+                message = parse_message(buf);
+                handle_message(message);
+                exit(EXIT_SUCCESS);
+            }
             exit(EXIT_SUCCESS);
         }
+        wait(0);
     }
 }
 /* }}} */

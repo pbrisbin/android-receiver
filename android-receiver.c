@@ -10,6 +10,7 @@
 #include <getopt.h>
 #include <errno.h>
 
+#define MAXBUF   1024
 #define TOK      "/"
 #define FMTCALL  "  -!-  Call from %s"
 #define FMTOTHER "  -!-  %s"
@@ -173,7 +174,7 @@ static void handle_message(struct message_t *message) { /* {{{ */
 /* }}} */
 
 int main(int argc, char *argv[]) { /* {{{ */
-    char buf[1024];
+    char buf[MAXBUF];
 
     struct message_t    *message;
     struct sockaddr_in  server, from;

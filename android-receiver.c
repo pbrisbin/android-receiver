@@ -10,6 +10,7 @@
 #include <getopt.h>
 #include <errno.h>
 
+#define DEBUG    0
 #define MAXBUF   1024
 #define TOK      "/"
 #define FMTCALL  "  -!-  Call from %s"
@@ -204,7 +205,8 @@ int main(int argc, char *argv[]) { /* {{{ */
         if (n < 0)
             error("error receiving from socket");
 
-        printf("message received: %s\n", buf);
+        if (DEBUG)
+            printf("message received: %s\n", buf);
 
         /* double-fork taken from dzen2/util.c; avoids zombie processes
          * without requiring a signal handler. */

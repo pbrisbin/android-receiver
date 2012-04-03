@@ -14,7 +14,7 @@ This was done mostly as a learning exercise in C.
 
 Port is optional and defaults to 10600. The handler you specified will 
 be called asynchronously with the formatted message as the first and 
-only argument.
+only argument. You can find an example handler using dzen under `./bin`.
 
 You can find an example handler using dzen2 in my scripts repo.
 

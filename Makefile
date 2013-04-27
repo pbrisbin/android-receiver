@@ -1,20 +1,21 @@
+OUT = android-receiver
 
-include config.mk
+SRC = $(OUT).c
+OBJ = $(SRC:.c=.o)
 
-SRC = android-receiver.c
-OBJ = ${SRC:.c=.o}
+PREFIX ?= /usr/local
 
-all: android-receiver
+CFLAGS := -std=c99 -g -pedantic -Wall -Wextra $(CFLAGS)
 
-.c.o:
-	${CC} -c ${CFLAGS} $<
+all: $(OUT)
 
-${OBJ}: config.mk
-mail-query: ${OBJ}
-	${CC} -o $@ ${OBJ} ${LDFLAGS}
+$(OUT): $(OBJ)
+	$(CC) -o $@ $(OBJ) $(LDFLAGS)
 
+install: all
+	install -D -m755 $(OUT) $(DESTDIR)$(PREFIX)/bin/$(OUT)
 
 clean:
-	rm -f android-receiver ${OBJ}
+	$(RM) $(OUT) $(OBJ)
 
-.PHONY: all clean
+.PHONY: install clean

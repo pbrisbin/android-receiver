@@ -1,7 +1,7 @@
 # Android Receiver
 
 Listen for broadcast messages from [android-notifer][]. Display them 
-using `notify-send`.
+using `libnotify`.
 
 ## Installation
 
